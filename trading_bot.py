@@ -3,13 +3,22 @@ from lumibot.backtesting import YahooDataBacktesting
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
 from datetime import datetime
+# from alpaca_trade_api import REST
+from timedelta import Timedelta
+from ai_util import estimate_sentiment
+from api_util import REST
 import json
 
 creds = open('CREDS.json')
 ALPACA_CREDS = json.load(creds)
 
-start_date = datetime(2023,12,15)
-end_date = datetime(2023,12,31)
+ALPACA ={
+    "API_KEY":ALPACA_CREDS['API_KEY'],
+    "API_SECRET":ALPACA_CREDS['API_SECRET'],
+    "PAPER":True
+}
+
+
 symbol = "SPY"
 cash_at_risk = .5
 
@@ -20,6 +29,8 @@ class MLTrader(Strategy):
         self.sleeptime = "24H"
         self.last_trade = None
         self.cash_at_risk = cash_at_risk
+        # self.api = REST(base_url=ALPACA_CREDS['BASE_URL'], key_id=ALPACA_CREDS['API_KEY'], secret_key=ALPACA_CREDS['API_SECRET'])
+        self.api_util = REST(CREDS=ALPACA)
 
     def postion_sizing(self):
         cash = self.get_cash()
@@ -27,25 +38,59 @@ class MLTrader(Strategy):
         quantity = round(cash * self.cash_at_risk / last_price,0)
         return cash, last_price, quantity
     
+    def get_dates(self):
+        today = self.get_datetime()
+        three_days_prior = today - Timedelta(days=3)
+        return today.strftime('%Y-%m-%d'), three_days_prior.strftime('%Y-%m-%d')
+
+    
+    def get_sentiment(self):
+        end, start = self.get_dates()
+        news = self.api_util.get_headlines(symbol=self.symbol, start=start, end=end)
+
+        probability, sentiment = estimate_sentiment(news)
+        return probability, sentiment
+    
     def on_trading_iteration(self):
         cash, last_price, quantity =  self.postion_sizing()
+        probability, sentiment = self.get_sentiment()
 
         if cash > last_price:
-            if self.last_trade == None:
+            if sentiment == "positive" and probability > .999: 
+                if self.last_trade == "sell": 
+                    self.sell_all() 
                 order = self.create_order(
-                    self.symbol,
-                    quantity,
-                    "buy",
-                    type="brackey",
-                    take_profit_price=last_price*1.20,
+                    self.symbol, 
+                    quantity, 
+                    "buy", 
+                    type="bracket", 
+                    take_profit_price=last_price*1.20, 
                     stop_loss_price=last_price*.95
                 )
-                self.submit_order(order)
-                self.last_trade = "buy" 
+                self.submit_order(order) 
+                self.last_trade = "buy"
+            elif sentiment == "negative" and probability > .999: 
+                if self.last_trade == "buy": 
+                    self.sell_all() 
+                order = self.create_order(
+                    self.symbol, 
+                    quantity, 
+                    "sell", 
+                    type="bracket", 
+                    take_profit_price=last_price*.8, 
+                    stop_loss_price=last_price*1.05
+                )
+                self.submit_order(order) 
+                self.last_trade = "sell"
 
 
-
-broker = Alpaca(ALPACA_CREDS)
+start_date = datetime(2024,6,1)
+end_date = datetime(2024,6,29)
+broker = Alpaca(ALPACA)
 strategy = MLTrader(name="mlstrat", broker=broker, parameters={"symbol":symbol, "cash_at_risk":cash_at_risk})
 
 strategy.backtest(YahooDataBacktesting, start_date, end_date, parameters={"symbol":symbol, "cash_at_risk": cash_at_risk})
+
+# trader = Trader()
+# trader.add_strategy(strategy)
+# trader.run_all()
