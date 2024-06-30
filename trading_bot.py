@@ -3,7 +3,6 @@ from lumibot.backtesting import YahooDataBacktesting
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
 from datetime import datetime
-# from alpaca_trade_api import REST
 from timedelta import Timedelta
 from ai_util import estimate_sentiment
 from api_util import REST
@@ -29,7 +28,6 @@ class MLTrader(Strategy):
         self.sleeptime = "24H"
         self.last_trade = None
         self.cash_at_risk = cash_at_risk
-        # self.api = REST(base_url=ALPACA_CREDS['BASE_URL'], key_id=ALPACA_CREDS['API_KEY'], secret_key=ALPACA_CREDS['API_SECRET'])
         self.api_util = REST(CREDS=ALPACA)
 
     def postion_sizing(self):

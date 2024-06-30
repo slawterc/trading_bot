@@ -23,16 +23,3 @@ class REST():
 
         return headlines
 
-# creds = open('CREDS.json')
-# CREDS = json.load(creds)
-# start = '2024-06-01T00:00:00Z'
-# end = '2024-06-13T00:00:00Z'
-# symbol = 'SPY'
-
-# news = get_headlines(CREDS=CREDS, start=start, end=end, symbol=symbol)
-
-# probability, sentiment = estimate_sentiment(news)
-
-# print(probability)
-# print(sentiment)
-
